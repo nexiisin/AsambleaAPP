@@ -283,7 +283,7 @@ export default function AdminAsamblea() {
             text="➕ Crear propuesta"
             color="#16a34a"
             onPress={() =>
-              router.push({ pathname: '/admin/propuestas', params: { asambleaId } })
+              router.push({ pathname: '/admin/propuestas', params: { asambleaId, modo: 'crear' } })
             }
           />
 
