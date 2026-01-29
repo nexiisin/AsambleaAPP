@@ -8,7 +8,8 @@ import {
   Dimensions,
   ScrollView,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, router } from 'expo-router';
 import Svg, { Circle } from 'react-native-svg';
 import { supabase } from '@/src/services/supabase';
 
@@ -188,7 +189,23 @@ export default function Cronometro() {
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.content}>
+    <LinearGradient
+      colors={['#5fba8b', '#d9f3e2']}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.content}>
+      
+      {/* Botón de volver */}
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={() => router.push({
+          pathname: '/admin/asamblea',
+          params: { asambleaId }
+        })}
+      >
+        <Text style={styles.backButtonText}>← Volver</Text>
+      </TouchableOpacity>
+
       <Text style={styles.estado}>
         Estado:{' '}
         {cronometroActivo
@@ -264,6 +281,7 @@ export default function Cronometro() {
         </>
       )}
     </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -279,6 +297,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  backButton: {
+    alignSelf: 'flex-start',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+  },
+  backButtonText: {
+    fontSize: 16,
+    color: '#065f46',
+    fontWeight: '600',
   },
   estado: {
     fontSize: 16,

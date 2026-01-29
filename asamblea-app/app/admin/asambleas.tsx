@@ -6,6 +6,7 @@ import {
   StyleSheet,
   FlatList,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supabase } from '@/src/services/supabase';
 
@@ -34,7 +35,10 @@ export default function AsambleasList() {
   }, []);
 
   return (
-    <View style={styles.page}>
+    <LinearGradient
+      colors={['#5fba8b', '#d9f3e2']}
+      style={styles.page}
+    >
       <View style={styles.panel}>
         <Text style={styles.title}>Asambleas existentes</Text>
 
@@ -63,14 +67,13 @@ export default function AsambleasList() {
           )}
         />
       </View>
-    </View>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   page: {
     flex: 1,
-    backgroundColor: '#ffffff',
     alignItems: 'center',
   },
 

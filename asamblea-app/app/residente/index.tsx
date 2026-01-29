@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { supabase } from '@/src/services/supabase';
 
@@ -131,9 +132,9 @@ export default function ResidenteScreen() {
       return;
     }
 
-    // 3️⃣ ir a quórum
+    // 3️⃣ ir a sala de espera
     router.replace({
-      pathname: '/residente/asistencia',
+      pathname: '/residente/sala-espera',
       params: {
         asambleaId,
         asistenciaId: asistencia.id,
@@ -143,10 +144,14 @@ export default function ResidenteScreen() {
   };
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      keyboardShouldPersistTaps="handled"
+    <LinearGradient
+      colors={['#5fba8b', '#d9f3e2']}
+      style={{ flex: 1 }}
     >
+      <ScrollView
+        contentContainerStyle={styles.container}
+        keyboardShouldPersistTaps="handled"
+      >
       {/* ================= PASO 1 ================= */}
       {step === 1 && (
         <View style={styles.card}>
@@ -238,7 +243,8 @@ export default function ResidenteScreen() {
           </TouchableOpacity>
         </View>
       )}
-    </ScrollView>
+      </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -250,7 +256,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
     padding: 24,
   },
   card: {

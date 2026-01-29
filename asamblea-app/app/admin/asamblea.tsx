@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { supabase } from '@/src/services/supabase';
 
@@ -18,6 +19,7 @@ export default function AdminAsamblea() {
   const [propuestaAbierta, setPropuestaAbierta] = useState<any>(null);
   const [totalAsistentes, setTotalAsistentes] = useState(0);
   const [apoderadosPendientes, setApoderadosPendientes] = useState(0);
+  const [tiempoRestante, setTiempoRestante] = useState('');
 
   const cargarTodo = async () => {
     if (!asambleaId) return;
@@ -59,19 +61,134 @@ export default function AdminAsamblea() {
     setApoderadosPendientes(pendientes);
   };
 
+  const calcularTiempoRestante = () => {
+    if (!asamblea?.hora_cierre_ingreso) {
+      setTiempoRestante('');
+      return;
+    }
+
+    const ahora = new Date();
+    const horaCierre = new Date(asamblea.hora_cierre_ingreso);
+    
+    if (ahora >= horaCierre) {
+      setTiempoRestante('CERRADO');
+      return;
+    }
+
+    const diffMs = horaCierre.getTime() - ahora.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffSeg = Math.floor((diffMs % 60000) / 1000);
+    setTiempoRestante(`ABIERTO - ${diffMin}:${diffSeg.toString().padStart(2, '0')} restantes`);
+  };
+
   useEffect(() => {
+    if (!asambleaId) return;
+
+    // Carga inicial
     cargarTodo();
-    const i = setInterval(cargarTodo, 3000);
-    return () => clearInterval(i);
-  }, [asambleaId]);
+
+    // Suscripción a cambios en asambleas
+    const asambleasSubscription = supabase
+      .channel('asambleas-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'asambleas',
+          filter: `id=eq.${asambleaId}`,
+        },
+        (payload) => {
+          console.log('Cambio en asamblea:', payload);
+          cargarTodo();
+        }
+      )
+      .subscribe();
+
+    // Suscripción a cambios en propuestas
+    const propuestasSubscription = supabase
+      .channel('propuestas-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'propuestas',
+          filter: `asamblea_id=eq.${asambleaId}`,
+        },
+        (payload) => {
+          console.log('Cambio en propuestas:', payload);
+          cargarTodo();
+        }
+      )
+      .subscribe();
+
+    // Suscripción a cambios en asistencias
+    const asistenciasSubscription = supabase
+      .channel('asistencias-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'asistencias',
+          filter: `asamblea_id=eq.${asambleaId}`,
+        },
+        (payload) => {
+          console.log('Cambio en asistencias:', payload);
+          cargarTodo();
+        }
+      )
+      .subscribe();
+
+    // Suscripción a cambios en votos (para actualizar propuestas)
+    const votosSubscription = supabase
+      .channel('votos-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'votos',
+        },
+        (payload) => {
+          console.log('Cambio en votos:', payload);
+          cargarTodo();
+        }
+      )
+      .subscribe();
+
+    // Timer para actualizar el contador de tiempo
+    const timer = setInterval(() => {
+      calcularTiempoRestante();
+    }, 1000);
+
+    // Cleanup
+    return () => {
+      clearInterval(timer);
+      supabase.removeChannel(asambleasSubscription);
+      supabase.removeChannel(propuestasSubscription);
+      supabase.removeChannel(asistenciasSubscription);
+      supabase.removeChannel(votosSubscription);
+    };
+  }, [asambleaId, asamblea]);
+
+  // Calcular tiempo restante cuando cambie la asamblea
+  useEffect(() => {
+    calcularTiempoRestante();
+  }, [asamblea]);
 
   if (!asamblea) {
     return <View style={styles.center}><Text>Cargando…</Text></View>;
   }
 
   return (
-    <ScrollView contentContainerStyle={styles.page}>
-      <View style={styles.container}>
+    <LinearGradient
+      colors={['#5fba8b', '#d9f3e2']}
+      style={{ flex: 1 }}
+    >
+      <ScrollView contentContainerStyle={styles.page}>
+        <View style={styles.container}>
 
         {/* HEADER */}
         <View style={styles.header}>
@@ -82,13 +199,13 @@ export default function AdminAsamblea() {
         {/* TIEMPO DE INGRESO */}
         <View style={styles.infoBox}>
           <Text style={styles.infoTitle}>⏱️ Tiempo de ingreso</Text>
-          <Text>
-            {asamblea.hora_cierre_ingreso
-              ? 'CERRADO'
-              : 'ABIERTO'}
+          <Text style={styles.infoText}>
+            {!asamblea.hora_cierre_ingreso 
+              ? 'ABIERTO' 
+              : tiempoRestante || 'Calculando...'}
           </Text>
 
-          {!asamblea.hora_cierre_ingreso && (
+          {asamblea.hora_cierre_ingreso && tiempoRestante && tiempoRestante !== 'CERRADO' && (
             <TouchableOpacity
               style={styles.smallBtn}
               onPress={async () => {
@@ -96,10 +213,9 @@ export default function AdminAsamblea() {
                   .from('asambleas')
                   .update({ hora_cierre_ingreso: new Date().toISOString() })
                   .eq('id', asambleaId);
-                cargarTodo();
               }}
             >
-              <Text style={styles.smallBtnText}>Cerrar ingreso</Text>
+              <Text style={styles.smallBtnText}>Cerrar ingreso ahora</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -167,7 +283,7 @@ export default function AdminAsamblea() {
             text="➕ Crear propuesta"
             color="#16a34a"
             onPress={() =>
-              router.push({ pathname: '/admin/crear-propuesta', params: { asambleaId } })
+              router.push({ pathname: '/admin/propuestas', params: { asambleaId } })
             }
           />
 
@@ -175,7 +291,7 @@ export default function AdminAsamblea() {
             text="📋 Listado de propuestas"
             color="#2563eb"
             onPress={() =>
-              router.push({ pathname: '/admin/listado-propuestas', params: { asambleaId } })
+              router.push({ pathname: '/admin/propuestas', params: { asambleaId } })
             }
           />
 
@@ -190,9 +306,7 @@ export default function AdminAsamblea() {
           <Action
             text="📊 Ver resultados"
             color="#10b981"
-            onPress={() =>
-              router.push({ pathname: '/admin/resultados', params: { asambleaId } })
-            }
+            onPress={() => Alert.alert('Resultados', 'Funcionalidad en desarrollo')}
           />
 
           <Action
@@ -210,6 +324,7 @@ export default function AdminAsamblea() {
 
       </View>
     </ScrollView>
+    </LinearGradient>
   );
 }
 
@@ -240,6 +355,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   infoTitle: { fontWeight: 'bold', marginBottom: 8 },
+  infoText: { fontSize: 16, color: '#16a34a', fontWeight: '600' },
 
   stats: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   stat: {
